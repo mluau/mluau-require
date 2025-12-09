@@ -13,6 +13,7 @@ pub use memoryvfs::{create_memory_vfs_from_map, create_vfs_from_map};
 
 // Re-export rust-vfs for convenience
 pub use vfs;
+pub use rust_embed;
 
 #[cfg(test)]
 mod tests;

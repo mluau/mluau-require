@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 vfs = { git = "https://github.com/Anti-Raid/rust-vfs", features = ["embedded-fs"] } # TODO: switch to a mluau fork soon
+rust-embed = { version = "8.7.0", features = ["debug-embed", "interpolate-folder-path"] }
 mluau = { git = "https://github.com/mluau/mluau" }
 log = { version = "0.4", optional = true }
 
