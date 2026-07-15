@@ -1,21 +1,12 @@
-use super::FilesystemWrapper;
-use std::collections::{HashMap, HashSet};
-use vfs::FileSystem;
+use crate::Vfs;
 
-/// Creates a virtual filesystem from a map of paths to content.
-pub fn create_vfs_from_map(
-    tree: &HashMap<String, String>,
-) -> Result<FilesystemWrapper, crate::Error> {
-    let mem_fs = create_memory_vfs_from_map(tree)?;
-    Ok(FilesystemWrapper::new(mem_fs))
-}
+use std::collections::HashMap;
 
-/// Creates a virtual filesystem that is a concrete MemoryFS from a map of paths to content.
+/// Creates a Vfs from a map of paths to content.
 pub fn create_memory_vfs_from_map(
-    tree: &HashMap<String, String>,
-) -> Result<vfs::MemoryFS, crate::Error> {
-    let fs = vfs::MemoryFS::new();
-    let mut created = HashSet::new();
+    tree: HashMap<String, String>,
+) -> crate::Vfs {
+    let mut fs = crate::VfsBlock::new();
     for (path_s, content) in tree {
         let path = path_s.split('/').collect::<Vec<_>>();
         if path.len() >= 2 {
@@ -30,21 +21,49 @@ pub fn create_memory_vfs_from_map(
             }
 
             let mut current_path = String::new();
-            for folder in folder_part {
-                current_path.push('/');
-                current_path.push_str(folder);
-                if !created.contains(&current_path) {
-                    fs.create_dir(&current_path)?;
-                    created.insert(current_path.clone());
+            for (i, folder) in folder_part.iter().enumerate() {
+                if i != 0 {
+                    current_path.push('/');
                 }
+                current_path.push_str(folder);
+                fs.insert(current_path.clone(), crate::VfsEntry::Dir);
             }
         }
-        let path_s = format!("/{path_s}");
-        fs.create_file(&path_s)
-            .map_err(|e| crate::Error::from(format!("Failed to create file {path_s}: {e}")))?
-            .write_all(content.as_bytes())
-            .map_err(|e| crate::Error::from(format!("Failed to write to {path_s}: {e}")))?;
+        fs.insert(path_s, crate::VfsEntry::File(content));
     }
 
-    Ok(fs)
+    Vfs::new().add(fs)
+}
+
+/// Creates a Vfs from a map of paths to content.
+#[cfg(feature = "rust-embed")]
+pub fn create_memory_vfs_from_embedded<T: rust_embed::RustEmbed>() -> crate::Vfs {
+    let mut fs = crate::VfsBlock::new();
+    for path_s in T::iter() {
+        let path = path_s.split('/').collect::<Vec<_>>();
+        if path.len() >= 2 {
+            // Folder part is everything except the last part
+            let mut folder_part = Vec::with_capacity(path.len() - 1);
+            let plen = path.len();
+            for (i, part) in path.into_iter().enumerate() {
+                if i == plen - 1 {
+                    break;
+                }
+                folder_part.push(part);
+            }
+
+            let mut current_path = String::new();
+            for (i, folder) in folder_part.iter().enumerate() {
+                if i != 0 {
+                    current_path.push('/');
+                }
+                current_path.push_str(folder);
+                fs.insert(current_path.clone(), crate::VfsEntry::Dir);
+            }
+        }
+        let content = T::get(&path_s).expect("internal error reading file").data.into_owned();
+        fs.insert(path_s.to_string(), crate::VfsEntry::File(String::from_utf8_lossy_owned(content)));
+    }
+
+    Vfs::new().add(fs)
 }

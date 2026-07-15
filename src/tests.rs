@@ -1,6 +1,6 @@
+use crate::{Vfs, VfsBlock, FilesystemWrapper};
+
 use super::asset_requirer::*;
-use super::fswrapper::*;
-use std::path::PathBuf;
 
 fn create_luaurc_with_aliases(aliases: indexmap::IndexMap<String, String>) -> String {
     serde_json::to_string(&serde_json::json!({
@@ -97,7 +97,7 @@ fn test_basic_nested_require() {
     let lua = mluau::Lua::new();
 
     let c = AssetRequirer::new(
-        super::memoryvfs::create_vfs_from_map(&tree).expect("Failed to make vfs"),
+        FilesystemWrapper::new(super::memoryvfs::create_memory_vfs_from_map(tree)),
         "test".to_string(),
         lua.globals(),
     );
@@ -121,16 +121,75 @@ fn test_basic_nested_require() {
 }
 
 #[test]
-fn test_reqtest() {
+fn test_sythivo_a() {
+    let main_luau = r#"
+local foo = require("./foo/module")
+
+assert(type(foo) == "function")
+local res = foo();
+assert(type(res) == "table")
+print(res.resolved);
+return res.resolved
+    "#;
+
+    let foo_module_luau = r#"
+return function()
+return require("./test")
+end
+    "#;
+
+    let foo_test_luau = r#"
+return {
+resolved = 246
+}
+    "#;
+
     let lua = mluau::Lua::new();
 
-    let base_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let mut c = Vfs::new().add(VfsBlock::new());
+    c.push_dir(0, "foo");
+    c.push_file(0, "foo/module.luau", foo_module_luau.to_string());
+    c.push_file(0, "foo/test.luau", foo_test_luau.to_string());
+    c.push_file(0, "main.luau", main_luau.to_string());
+    
+    let c = FilesystemWrapper::new(c);
+    let c = AssetRequirer::new(c, "styhivo_abc".to_string(), lua.globals());
 
-    let c = FilesystemWrapper::new(vfs::PhysicalFS::new(
-        base_path
-            .join("src")
-            .join("tests"),
-    ));
+    lua.globals()
+        .set("require", lua.create_require_function(c).unwrap())
+        .unwrap();
+
+    let func = lua
+        .load(main_luau)
+        .set_name("/main")
+        .into_function()
+        .unwrap();
+    let th = lua.create_thread(func).unwrap();
+
+    let l: u32 = match th.resume(()) {
+        Ok(v) => v,
+        Err(e) => {
+            println!("Error: {e}");
+            panic!("Failed to load test");
+        }
+    };
+
+    assert!(l == 246);
+}
+
+#[test]
+#[cfg(feature = "rust-embed")]
+fn test_reqtest() {
+    use rust_embed::Embed;
+
+    #[derive(Embed)]
+    #[folder = "src/tests"]
+    struct ReqTest;
+
+
+    let lua = mluau::Lua::new();
+
+    let c = FilesystemWrapper::new(super::create_memory_vfs_from_embedded::<ReqTest>());
 
     let c = AssetRequirer::new(c, "reqtest".to_string(), lua.globals());
 
@@ -151,70 +210,4 @@ fn test_reqtest() {
     };
 
     assert_eq!(l, 1);
-}
-
-#[test]
-fn test_sythivo_a() {
-    let main_luau = r#"
-local foo = require("./foo/module")
-
-assert(type(foo) == "function")
-local res = foo();
-assert(type(res) == "table")
-print(res.resolved);
-return res.resolved
-    "#;
-
-    let foo_module_luau = r#"
-return function()
-return require("./test")
-end
-    "#;
-
-    let foo_test_luau = r#"
-return {
-resolved = true
-}
-    "#;
-
-    let lua = mluau::Lua::new();
-
-    let c = FilesystemWrapper::new(vfs::MemoryFS::new());
-
-    c.create_dir("/foo").expect("Failed to create foo dir");
-    c.create_file("/foo/module.luau")
-        .unwrap()
-        .write_all(foo_module_luau.as_bytes())
-        .unwrap();
-    c.create_file("/foo/test.luau")
-        .unwrap()
-        .write_all(foo_test_luau.as_bytes())
-        .unwrap();
-    c.create_file("/main.luau")
-        .unwrap()
-        .write_all(main_luau.as_bytes())
-        .unwrap();
-
-    let c = AssetRequirer::new(c, "styhivo_abc".to_string(), lua.globals());
-
-    lua.globals()
-        .set("require", lua.create_require_function(c).unwrap())
-        .unwrap();
-
-    let func = lua
-        .load(main_luau)
-        .set_name("/main")
-        .into_function()
-        .unwrap();
-    let th = lua.create_thread(func).unwrap();
-
-    let l: bool = match th.resume(()) {
-        Ok(v) => v,
-        Err(e) => {
-            println!("Error: {e}");
-            panic!("Failed to load test");
-        }
-    };
-
-    assert!(l);
 }

@@ -1,79 +1,104 @@
+use std::collections::HashMap;
 use std::rc::Rc;
-use vfs::path::VfsFileType;
-use vfs::{FileSystem, VfsResult};
+
+pub enum VfsEntry {
+    Dir,
+    File(String)
+}
+
+pub type VfsBlock = HashMap<String, VfsEntry>;
+pub struct Vfs {
+    blocks: Vec<VfsBlock>
+}
+
+impl std::fmt::Debug for Vfs {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Vfs")
+    }
+}
+
+impl Vfs {
+    pub fn new() -> Self {
+        Self { blocks: vec![] }
+    }
+
+    pub fn add(mut self, mut next_vfs: VfsBlock) -> Self {
+        next_vfs.insert("".to_string(), VfsEntry::Dir); // ensure theres a root dir always
+        self.blocks.push(next_vfs);
+        self
+    }
+
+    pub fn extend(&mut self, other: Self) {
+        self.blocks.extend(other.blocks);
+    }
+
+    pub fn push_dir(&mut self, b: usize, path: &str) {
+        self.blocks[b].insert(path.to_string(), VfsEntry::Dir);
+    }
+
+    pub fn push_file(&mut self, b: usize, path: &str, content: String) {
+        self.blocks[b].insert(path.to_string(), VfsEntry::File(content));
+    }
+
+    pub fn get(&self, path: &str) -> Option<&VfsEntry> {
+        #[cfg(test)]
+        println!("Get {path}");
+        for block in self.blocks.iter() {
+            if let Some(data) = block.get(path) {
+                return Some(&data)
+            }
+        }
+
+        None
+    }
+}
 
 #[derive(Debug, Clone)]
 /// A wrapper around a VFS file system
-pub struct FilesystemWrapper(pub Rc<dyn FileSystem>);
+pub struct FilesystemWrapper(Rc<Vfs>);
 
 impl FilesystemWrapper {
-    pub fn new<T: vfs::FileSystem>(fs: T) -> Self {
+    pub fn new(fs: Vfs) -> Self {
         Self(Rc::new(fs))
     }
 
-    pub fn read_file(&self, path: &str) -> VfsResult<Vec<u8>> {
-        self.read_to_bytes(path)
+    pub fn read_file(&self, path: &str) -> Result<&String, &'static str> {
+        match self.0.get(path).ok_or("file not found")? {
+            VfsEntry::Dir => Err("file is a directory"),
+            VfsEntry::File(p) => Ok(p)
+        }
     }
 
     /// Fixes the path to conform to the VFS specific quirks/format
-    pub fn path_fix(path: String) -> String {
+    pub fn path_fix<'a>(path: &'a str) -> &'a str {
         if path.starts_with("./") {
-            return format!("/{}", path.trim_start_matches("./"));
-        } else if !path.starts_with('/') {
-            return format!("/{path}");
+            return path.trim_start_matches("./");
+        } else if path.starts_with('/') {
+            return path.trim_start_matches("/");
         }
 
         path
     }
 
-    pub fn is_file(&self, path: String) -> VfsResult<bool> {
+    pub fn is_file(&self, path: &str) -> bool {
         let path = Self::path_fix(path);
-
-        #[cfg(feature = "log")]
-        log::trace!("Checking if {path:#?} is a file");
-        if !self.exists(&path)? {
-            #[cfg(feature = "log")]
-            log::trace!("File {path:#?} does not exist");
-            return Ok(false);
+        match self.0.get(&path) {
+            Some(VfsEntry::File(_)) => true,
+            _ => false
         }
-
-        let metadata = self.metadata(&path)?;
-        Ok(metadata.file_type == VfsFileType::File)
     }
 
-    pub fn get_file(&self, path: String) -> VfsResult<Vec<u8>> {
+    pub fn get_file(&self, path: &str) -> Result<&String, &'static str> {
         let path = Self::path_fix(path);
-
         let contents = self.read_file(&path)?;
         Ok(contents)
     }
 
-    pub fn is_dir(&self, path: String) -> VfsResult<bool> {
-        let path = Self::path_fix(path);
-
-        #[cfg(feature = "log")]
-        log::trace!("Checking if {path:#?} is a directory");
-        if path.is_empty() || path == "/" {
-            return Ok(true);
+    pub fn is_dir(&self, path: &str) -> bool {
+        let path = Self::path_fix(&path);
+        match self.0.get(&path) {
+            Some(VfsEntry::Dir) => true,
+            _ => false
         }
-
-        if !self.exists(&path)? {
-            #[cfg(feature = "log")]
-            log::trace!("Directory {path:#?} does not exist");
-            return Ok(false);
-        }
-
-        let metadata = self.0.metadata(&path)?;
-        #[cfg(feature = "log")]
-        log::trace!("Metadata: {metadata:#?}");
-        Ok(metadata.file_type == VfsFileType::Directory)
-    }
-}
-
-impl std::ops::Deref for FilesystemWrapper {
-    type Target = dyn FileSystem;
-
-    fn deref(&self) -> &Self::Target {
-        self.0.as_ref()
     }
 }

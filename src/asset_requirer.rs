@@ -79,8 +79,7 @@ impl LuaRequire for AssetRequirer {
     fn has_module(&self) -> bool {
         self.vfs
             .fs
-            .is_file(self.vfs.get_file_path().to_string())
-            .unwrap_or(false)
+            .is_file(self.vfs.get_file_path())
     }
 
     fn cache_key(&self) -> String {
@@ -94,8 +93,7 @@ impl LuaRequire for AssetRequirer {
     fn has_config(&self) -> bool {
         self.vfs
             .fs
-            .is_file(self.vfs.get_luaurc_path())
-            .unwrap_or(false)
+            .is_file(&self.vfs.get_luaurc_path())
     }
 
     fn config(&self) -> IoResult<Vec<u8>> {
@@ -105,8 +103,9 @@ impl LuaRequire for AssetRequirer {
         log::trace!("Loading config from {luaurc_path:#?}");
         self.vfs
             .fs
-            .get_file(luaurc_path)
+            .get_file(&luaurc_path)
             .map_err(std::io::Error::other)
+            .map(|x| x.as_bytes().to_vec())
     }
 
     fn loader(&self, lua: &Lua) -> LuaResult<LuaFunction> {
@@ -114,7 +113,7 @@ impl LuaRequire for AssetRequirer {
         let content = self
             .vfs
             .fs
-            .get_file(chunk_name.to_string())
+            .get_file(chunk_name)
             .map_err(|e| mluau::Error::external(format!("Failed to fetch contents: {e:?}")))?;
 
         let lv = lua

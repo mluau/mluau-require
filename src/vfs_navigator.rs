@@ -63,7 +63,7 @@ impl VfsNavigator {
             for potential_suffix in SUFFIXES.iter() {
                 if self
                     .fs
-                    .is_file(format!("{module_path}{potential_suffix}"))?
+                    .is_file(&format!("{module_path}{potential_suffix}"))
                 {
                     if found {
                         return Ok(ResolvedRealPath {
@@ -78,7 +78,7 @@ impl VfsNavigator {
             }
         }
 
-        if self.fs.is_dir(module_path.clone())? {
+        if self.fs.is_dir(&module_path) {
             if found {
                 return Ok(ResolvedRealPath {
                     status: NavigationStatus::Ambiguous,
@@ -89,7 +89,7 @@ impl VfsNavigator {
             for potential_suffix in INIT_SUFFIXES.iter() {
                 if self
                     .fs
-                    .is_file(format!("{module_path}{potential_suffix}"))?
+                    .is_file(&format!("{module_path}{potential_suffix}"))
                 {
                     if found {
                         return Ok(ResolvedRealPath {
