@@ -9,7 +9,7 @@ pub(crate) type Error = Box<dyn std::error::Error + Send + Sync>;
 
 pub use asset_requirer::AssetRequirer;
 pub use vfs::{Vfs, VfsBlock, VfsEntry};
-pub use memoryvfs::{create_memory_vfs_from_map, create_memory_vfs_from_embedded};
+pub use memoryvfs::{create_memory_vfs_from_map, create_memory_vfs_from_map_ref, create_memory_vfs_from_embedded};
 
 #[cfg(test)]
 mod tests;
