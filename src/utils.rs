@@ -1,5 +1,8 @@
 use std::collections::VecDeque;
 use std::path::{Component, Path, PathBuf};
+use std::sync::Arc;
+
+use crate::{Vfs, VfsEntry};
 
 // From https://github.com/luau-lang/luau/blob/master/CLI/src/FileUtils.cpp#L49
 pub(super) fn is_absolute_path(path: &str) -> bool {
@@ -56,5 +59,55 @@ pub(super) fn normalize_path(path: &Path) -> PathBuf {
     {
         // Join the components back together
         components.into_iter().collect()
+    }
+}
+
+#[derive(Debug, Clone)]
+/// A wrapper around a VFS file system
+pub(crate) struct FilesystemWrapper(Arc<Vfs>);
+
+impl FilesystemWrapper {
+    pub fn new(fs: Arc<Vfs>) -> Self {
+        Self(fs)
+    }
+
+    pub fn read_file(&self, path: &str) -> Result<&String, &'static str> {
+        match self.0.get(path).ok_or("file not found")? {
+            VfsEntry::Dir => Err("file is a directory"),
+            VfsEntry::File(p) => Ok(p)
+        }
+    }
+
+    /// Fixes the path to conform to the VFS specific quirks/format
+    pub fn path_fix<'a>(path: &'a str) -> &'a str {
+        if path.starts_with("./") {
+            return path.trim_start_matches("./");
+        } else if path.starts_with('/') {
+            return path.trim_start_matches("/");
+        }
+
+        path
+    }
+
+    pub fn is_file(&self, path: &str) -> bool {
+        let path = Self::path_fix(path);
+        match self.0.get(&path) {
+            Some(VfsEntry::File(_)) => true,
+            _ => false
+        }
+    }
+
+    pub fn get_file(&self, path: &str) -> Result<&String, &'static str> {
+        let path = Self::path_fix(path);
+        let contents = self.read_file(&path)?;
+        Ok(contents)
+    }
+
+    pub fn is_dir(&self, path: &str) -> bool {
+        let path = Self::path_fix(&path);
+        match self.0.get(&path) {
+            Some(VfsEntry::Dir) => true,
+            _ => false
+        }
     }
 }

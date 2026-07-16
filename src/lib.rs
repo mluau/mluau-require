@@ -1,6 +1,6 @@
 // vendored from khronos
 mod asset_requirer;
-pub mod fswrapper;
+pub mod vfs;
 mod memoryvfs;
 mod utils;
 mod vfs_navigator;
@@ -8,7 +8,7 @@ mod vfs_navigator;
 pub(crate) type Error = Box<dyn std::error::Error + Send + Sync>;
 
 pub use asset_requirer::AssetRequirer;
-pub use fswrapper::{FilesystemWrapper, Vfs, VfsBlock, VfsEntry};
+pub use vfs::{Vfs, VfsBlock, VfsEntry};
 pub use memoryvfs::{create_memory_vfs_from_map, create_memory_vfs_from_embedded};
 
 #[cfg(test)]

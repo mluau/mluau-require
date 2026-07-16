@@ -1,5 +1,6 @@
+use crate::utils::FilesystemWrapper;
+
 // Ported from https://github.com/luau-lang/luau/blob/master/CLI/src/VfsNavigator.cpp
-use super::fswrapper::FilesystemWrapper;
 use super::utils::{is_absolute_path, normalize_path};
 use std::path::{Path, PathBuf};
 

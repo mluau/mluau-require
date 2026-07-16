@@ -1,4 +1,4 @@
-use crate::{Vfs, VfsBlock, FilesystemWrapper};
+use crate::{Vfs, VfsBlock};
 
 use super::asset_requirer::*;
 
@@ -97,7 +97,7 @@ fn test_basic_nested_require() {
     let lua = mluau::Lua::new();
 
     let c = AssetRequirer::new(
-        FilesystemWrapper::new(super::memoryvfs::create_memory_vfs_from_map(tree)),
+        super::memoryvfs::create_memory_vfs_from_map(tree),
         "test".to_string(),
         lua.globals(),
     );
@@ -152,7 +152,6 @@ resolved = 246
     c.push_file(0, "foo/test.luau", foo_test_luau.to_string());
     c.push_file(0, "main.luau", main_luau.to_string());
     
-    let c = FilesystemWrapper::new(c);
     let c = AssetRequirer::new(c, "styhivo_abc".to_string(), lua.globals());
 
     lua.globals()
@@ -189,7 +188,7 @@ fn test_reqtest() {
 
     let lua = mluau::Lua::new();
 
-    let c = FilesystemWrapper::new(super::create_memory_vfs_from_embedded::<ReqTest>());
+    let c = super::create_memory_vfs_from_embedded::<ReqTest>();
 
     let c = AssetRequirer::new(c, "reqtest".to_string(), lua.globals());
 

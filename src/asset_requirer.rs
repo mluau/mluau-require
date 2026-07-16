@@ -1,9 +1,12 @@
-use super::fswrapper::FilesystemWrapper;
+use crate::Vfs;
+use crate::utils::FilesystemWrapper;
+
 use super::utils::is_absolute_path;
 use super::vfs_navigator::{NavigationStatus, VfsNavigator};
 use mluau::prelude::*;
 use std::io::Result as IoResult;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 pub trait IntoNavError {
     fn into_nav_error(self) -> Result<(), LuaNavigateError>;
@@ -31,10 +34,14 @@ pub struct AssetRequirer {
 }
 
 impl AssetRequirer {
-    pub fn new(fs: FilesystemWrapper, cache_prefix: String, global_table: LuaTable) -> Self {
+    pub fn new(fs: Vfs, cache_prefix: String, global_table: LuaTable) -> Self {
+        Self::new_arc(Arc::new(fs), cache_prefix, global_table)
+    }
+
+    pub fn new_arc(fs: Arc<Vfs>, cache_prefix: String, global_table: LuaTable) -> Self {
         Self {
             cache_prefix,
-            vfs: VfsNavigator::new(fs),
+            vfs: VfsNavigator::new(FilesystemWrapper::new(fs)),
             global_table,
         }
     }
