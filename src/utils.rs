@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
-use crate::{Vfs, VfsEntry};
+use crate::{Vfs, vfs::VfsEntry};
 
 // From https://github.com/luau-lang/luau/blob/master/CLI/src/FileUtils.cpp#L49
 pub(super) fn is_absolute_path(path: &str) -> bool {
@@ -63,7 +63,6 @@ pub(super) fn normalize_path(path: &Path) -> PathBuf {
 }
 
 #[derive(Debug, Clone)]
-/// A wrapper around a VFS file system
 pub(crate) struct FilesystemWrapper(Arc<Vfs>);
 
 impl FilesystemWrapper {

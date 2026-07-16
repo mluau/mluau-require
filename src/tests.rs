@@ -146,13 +146,13 @@ resolved = 246
 
     let lua = mluau::Lua::new();
 
-    let mut c = Vfs::new().add(VfsBlock::new());
-    c.push_dir(0, "foo");
-    c.push_file(0, "foo/module.luau", foo_module_luau.to_string());
-    c.push_file(0, "foo/test.luau", foo_test_luau.to_string());
-    c.push_file(0, "main.luau", main_luau.to_string());
+    let mut c = VfsBlock::new();
+    c.push_dir("foo".to_string());
+    c.push_file("foo/module.luau".to_string(), foo_module_luau.to_string());
+    c.push_file("foo/test.luau".to_string(), foo_test_luau.to_string());
+    c.push_file("main.luau".to_string(), main_luau.to_string());
     
-    let c = AssetRequirer::new(c, "styhivo_abc".to_string(), lua.globals());
+    let c = AssetRequirer::new(Vfs::new().add(c), "styhivo_abc".to_string(), lua.globals());
 
     lua.globals()
         .set("require", lua.create_require_function(c).unwrap())
