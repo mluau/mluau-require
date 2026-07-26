@@ -125,7 +125,6 @@ impl LuaRequire for AssetRequirer {
 
         let lv = lua
             .load(content)
-            .set_mode(mluau::ChunkMode::Text)
             .set_name(chunk_name)
             .set_environment(self.global_table.clone())
             .into_function()?;
