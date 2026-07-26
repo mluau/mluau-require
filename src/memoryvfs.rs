@@ -54,9 +54,26 @@ pub fn create_memory_vfs_from_embedded<T: rust_embed::RustEmbed>() -> crate::Vfs
         }
         
         // Insert the actual file
-        let content = String::from_utf8_lossy_owned(T::get(&path_s).expect("internal error reading file").data.into_owned());
+        let content = str_backport::from_utf8_lossy_owned(T::get(&path_s).expect("internal error reading file").data.into_owned());
         fs.push_file(path_s.to_string(), content);
     }
 
     Vfs::new().add(fs)
+}
+
+// Backport to non-nightly rust
+mod str_backport {
+    use std::borrow::Cow;
+    pub fn from_utf8_lossy_owned(v: Vec<u8>) -> String {
+        if let Cow::Owned(string) = String::from_utf8_lossy(&v) {
+            string
+        } else {
+            // SAFETY: `String::from_utf8_lossy`'s contract ensures that if
+            // it returns a `Cow::Borrowed`, it is a valid UTF-8 string.
+            // Otherwise, it returns a new allocation of an owned `String`, with
+            // replacement characters for invalid sequences, which is returned
+            // above.
+            unsafe { String::from_utf8_unchecked(v) }
+        }
+    }
 }
